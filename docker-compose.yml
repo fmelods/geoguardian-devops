@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: geoguardian-mysql
+    ports:
+      - "3307:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+      - ./src/main/resources/data.sql:/docker-entrypoint-initdb.d/data.sql:ro
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: geoguardian
+      MYSQL_USER: usuario
+      MYSQL_PASSWORD: senha
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      timeout: 20s
+      retries: 10
+      interval: 30s
+    networks:
+      - geoguardian-network
+
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: geoguardian-api
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/geoguardian?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: usuario
+      SPRING_DATASOURCE_PASSWORD: senha
+    restart: unless-stopped
+    networks:
+      - geoguardian-network
+
+volumes:
+  dbdata:
+    driver: local
+
+networks:
+  geoguardian-network:
+    driver: bridge
